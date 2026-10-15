@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <meta name="color-scheme" content="light">
+  <title>Spatial Projectiles Lab (WebXR VR/AR) - The Thinking Experiment</title>
+  <meta name="description" content="Spatial 3D and WebXR Projectile Motion laboratory for Meta Quest and web browsers with SOH CAH TOA decomposition, apex physics, and obstacle clearance.">
+  <link rel="stylesheet" href="styles.css">
+  <!-- KaTeX for rendered math -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+</head>
+<body>
+  <div class="bg-grid" aria-hidden="true"></div>
+
+  <div class="shell">
+    <!-- ===== HEADER ===== -->
+    <header class="hero">
+      <div>
+        <p class="kicker">The Thinking Experiment &bull; PhysicsKit</p>
+        <h1>Spatial Projectiles Lab <span class="badge-xr">&#129488; WebXR VR / AR</span></h1>
+        <p class="subtitle">
+          Interactive 3D projectile kinematics with full Meta Quest / Oculus VR &amp; Mixed Reality Passthrough support.
+          Decompose initial velocity with SOH&thinsp;CAH&thinsp;TOA, investigate apex velocity, calculate split times up &amp; down, and clear spatial obstacles.
+        </p>
+      </div>
+
+      <div class="hero-actions">
+        <button type="button" id="btn-enter-vr" class="btn btn-primary" title="Enter Immersive Virtual Reality in Meta Quest" disabled>
+          <svg class="btn-icon" viewBox="0 0 24 24"><path d="M21 7H3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h4.5l2 2h5l2-2H21a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM7.5 14a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5zm9 0a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+          Enter VR
+        </button>
+
+        <button type="button" id="btn-enter-ar" class="btn btn-teal" title="Enter Mixed Reality Passthrough on your real desk/floor" disabled>
+          <svg class="btn-icon" viewBox="0 0 24 24"><path d="M12 2l10 5.5v11L12 24 2 18.5v-11L12 2zm0 2.2L4.2 8.5 12 12.8l7.8-4.3L12 4.2zm-8 6.5v7.6l7 3.8v-7.6l-7-3.8zm16 0l-7 3.8v7.6l7-3.8v-7.6z"/></svg>
+          Enter AR (Passthrough)
+        </button>
+      </div>
+    </header>
+
+    <!-- ===== MAIN APPLICATION LAYOUT ===== -->
+    <main class="app-layout">
+      
+      <!-- LEFT COLUMN: 3D SIMULATION VIEWPORT -->
+      <section class="viewport-card" aria-label="3D Physics Simulation Viewport">
+        <div class="viewport-header">
+          <div class="viewport-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+            Interactive 3D Space (Drag to Orbit, Scroll to Zoom)
+          </div>
+
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <label for="cam-select" style="font-size:0.8rem; font-weight:600; color:var(--color-text-muted);">Camera:</label>
+            <select id="cam-select" class="btn btn-secondary btn-sm" style="padding:4px 8px;">
+              <option value="orbit">Free 3D Orbit</option>
+              <option value="side">2D Side Profile (Textbook)</option>
+              <option value="cannon">Cannon SOHCAHTOA Zoom</option>
+              <option value="apex">Apex / Peak Zoom</option>
+              <option value="follow">Follow Ball</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="viewport-canvas-wrap" id="canvas-container">
+          <canvas id="three-canvas"></canvas>
+
+          <!-- Floating HUD Overlay -->
+          <div class="canvas-overlay-hud">
+            <div class="hud-pill">
+              <span>Time: <strong id="hud-time">0.00s / 0.00s</strong></span>
+            </div>
+            <div class="hud-pill">
+              <span>Position: <strong id="hud-pos">x: 0.0m, y: 0.0m</strong></span>
+            </div>
+            <div class="hud-pill">
+              <span>Instant Velocity: <strong id="hud-vel">v: 0.0 m/s (vx: 0.0, vy: 0.0)</strong></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scrubber & Playback Controls -->
+        <div class="canvas-scrubber-bar">
+          <div class="playback-btns">
+            <button type="button" id="btn-fire" class="btn btn-primary btn-sm">▶ Fire</button>
+            <button type="button" id="btn-pause" class="btn btn-secondary btn-sm">⏸ Pause</button>
+            <button type="button" id="btn-reset" class="btn btn-secondary btn-sm">↺ Reset</button>
+          </div>
+
+          <input type="range" id="time-scrubber" class="scrubber-slider" min="0" max="1" step="0.01" value="0" aria-label="Flight Time Scrubber">
+
+          <div style="display:flex; align-items:center; gap:6px;">
+            <button type="button" id="btn-speed-slow" class="btn btn-secondary btn-sm" title="0.25x Slow Motion">0.25x</button>
+            <button type="button" id="btn-speed-norm" class="btn btn-secondary btn-sm" style="background:#e4f3f7; font-weight:700;" title="1.0x Real Time">1.0x</button>
+          </div>
+        </div>
+
+        <!-- Visual Legend -->
+        <div class="viewport-legend">
+          <div class="legend-item"><span class="legend-color" style="background:#0f7e9b;"></span> Horizontal Component (vx, constant)</div>
+          <div class="legend-item"><span class="legend-color" style="background:#d67b19;"></span> Vertical Component (vy, changes with g)</div>
+          <div class="legend-item"><span class="legend-color" style="background:#123140;"></span> Resultant Velocity Vector (v)</div>
+          <div class="legend-item"><span class="legend-color" style="background:#90a4ae;"></span> Acceleration (g = -9.8 m/s²)</div>
+        </div>
+      </section>
+
+      <!-- RIGHT COLUMN: SCIENTIFIC KINEMATICS & SOH CAH TOA CONTROLS -->
+      <aside class="sidebar">
+
+        <!-- Card 1: Launch Parameters -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Launch Parameters
+            </h3>
+            <span class="badge-xr">Kinematics Inputs</span>
+          </div>
+
+          <div class="control-grid">
+            <!-- Launch Speed -->
+            <div class="control-item">
+              <div class="control-label-row">
+                <span>Initial Speed (v₀)</span>
+                <span class="control-val" id="val-v0">18.0 m/s</span>
+              </div>
+              <input type="range" id="range-v0" class="range-input" min="5" max="35" step="0.5" value="18">
+            </div>
+
+            <!-- Launch Angle -->
+            <div class="control-item">
+              <div class="control-label-row">
+                <span>Launch Angle (θ)</span>
+                <span class="control-val" id="val-angle">45.0°</span>
+              </div>
+              <input type="range" id="range-angle" class="range-input" min="0" max="85" step="1" value="45">
+            </div>
+
+            <!-- Launch Height -->
+            <div class="control-item">
+              <div class="control-label-row">
+                <span>Platform Height (y₀)</span>
+                <span class="control-val" id="val-y0">1.2 m</span>
+              </div>
+              <input type="range" id="range-y0" class="range-input" min="0" max="10" step="0.2" value="1.2">
+            </div>
+
+            <!-- Gravity -->
+            <div class="control-item">
+              <div class="control-label-row">
+                <span>Gravity (g)</span>
+                <span class="control-val" id="val-g">9.80 m/s²</span>
+              </div>
+              <select id="select-g" class="btn btn-secondary btn-sm" style="width:100%; height:32px;">
+                <option value="9.8">Earth (9.80 m/s²)</option>
+                <option value="9.81">Earth Precision (9.81 m/s²)</option>
+                <option value="1.62">Moon (1.62 m/s²)</option>
+                <option value="3.71">Mars (3.71 m/s²)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Feature Toggles -->
+          <div class="toggles-row">
+            <label class="toggle-label">
+              <input type="checkbox" id="chk-sohcahtoa" checked>
+              <span>SOH CAH TOA Right Triangle</span>
+            </label>
+            <label class="toggle-label">
+              <input type="checkbox" id="chk-vectors" checked>
+              <span>Instantaneous Vectors</span>
+            </label>
+            <label class="toggle-label">
+              <input type="checkbox" id="chk-strobes" checked>
+              <span>Equal-Time Strobes (Δt)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Card 2: SOH CAH TOA Vector Decomposition -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 21 18-18v18H3z"/></svg>
+              SOH&thinsp;CAH&thinsp;TOA Initial Velocity Decomposition
+            </h3>
+          </div>
+
+          <p style="font-size:0.86rem; color:var(--color-text-muted); margin-bottom:10px;">
+            The launch vector \(\vec{v}_0\) acts as the <strong>hypotenuse</strong> of a right triangle at angle \(\theta\).
+            Its horizontal motion is completely independent of its vertical free-fall.
+          </p>
+
+          <div class="triangle-diagram-row">
+            <div class="formula-card">
+              <div class="formula-title">CAH &bull; Horizontal Component</div>
+              <div class="formula-math" id="math-vx">
+                \[\cos\theta = \frac{v_{0x}}{v_0} \implies v_{0x} = v_0 \cos\theta\]
+              </div>
+              <div style="font-size:0.86rem; font-weight:700; color:var(--color-teal); margin-top:4px;" id="disp-vx">
+                v₀ₓ = 18.0 &times; cos(45°) = 12.73 m/s
+              </div>
+            </div>
+
+            <div class="formula-card amber-border">
+              <div class="formula-title">SOH &bull; Vertical Component</div>
+              <div class="formula-math" id="math-vy">
+                \[\sin\theta = \frac{v_{0y}}{v_0} \implies v_{0y} = v_0 \sin\theta\]
+              </div>
+              <div style="font-size:0.86rem; font-weight:700; color:var(--color-amber); margin-top:4px;" id="disp-vy">
+                v₀ᵧ = 18.0 &times; sin(45°) = 12.73 m/s
+              </div>
+            </div>
+          </div>
+
+          <div style="background:var(--color-surface); padding:8px 12px; border-radius:4px; border:1px solid var(--color-border); font-size:0.82rem; color:var(--color-text-muted);">
+            <strong>TOA Check:</strong> \(\tan\theta = \frac{v_{0y}}{v_{0x}} \implies \theta = \arctan\left(\frac{v_{0y}}{v_{0x}}\right) = 45.0^\circ\).
+            Notice that \(v_{0x}\) <em>never changes</em> during the entire flight because horizontal acceleration \(a_x = 0\)!
+          </div>
+        </div>
+
+        <!-- Card 3: Apex & Times Up and Down -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m18 15-6-6-6 6"/></svg>
+              Apex &amp; Flight Timing Metrics
+            </h3>
+          </div>
+
+          <div class="telemetry-grid">
+            <div class="metric-card">
+              <div class="metric-label">Time to Top (t_up)</div>
+              <div class="metric-val" id="metric-tup">1.30 s</div>
+              <div class="metric-sub">t_up = v₀ᵧ / g</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-label">Fall Time (t_down)</div>
+              <div class="metric-val" id="metric-tdown">1.39 s</div>
+              <div class="metric-sub">&radic;(2H_max / g)</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-label">Total Time (t_tot)</div>
+              <div class="metric-val amber" id="metric-ttot">2.69 s</div>
+              <div class="metric-sub">t_up + t_down</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-label">Max Height (H_max)</div>
+              <div class="metric-val" id="metric-hmax">9.46 m</div>
+              <div class="metric-sub">y₀ + v₀ᵧ² / (2g)</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-label">Velocity at Peak</div>
+              <div class="metric-val" id="metric-vpeak">12.73 m/s</div>
+              <div class="metric-sub">vy = 0, so v = vx!</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-label">Total Range (R)</div>
+              <div class="metric-val amber" id="metric-range">34.25 m</div>
+              <div class="metric-sub">R = v₀ₓ &times; t_tot</div>
+            </div>
+          </div>
+
+          <!-- Crucial Concept Note -->
+          <div style="margin-top:12px; background:var(--color-amber-light); border:1px solid #f0cf9e; border-radius:4px; padding:8px 12px; font-size:0.83rem; color:#854906;">
+            <strong>&#9888; Common Misconception:</strong> Is the projectile's velocity zero at the apex? <strong>No!</strong>
+            Only the <em>vertical</em> velocity stops momentarily (\(v_y = 0\)).
+            The projectile still travels horizontally at full speed: \(v_{\text{peak}} = v_x = 12.73\text{ m/s}\).
+          </div>
+        </div>
+
+        <!-- Card 4: Obstacle Clearance Studio -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+              Obstacle Clearance Studio
+            </h3>
+            <label class="toggle-label">
+              <input type="checkbox" id="chk-obstacle" checked>
+              <span>Enable Barrier</span>
+            </label>
+          </div>
+
+          <div class="control-grid">
+            <div class="control-item">
+              <div class="control-label-row">
+                <span>Wall Distance (x_wall)</span>
+                <span class="control-val" id="val-wall-x">18.0 m</span>
+              </div>
+              <input type="range" id="range-wall-x" class="range-input" min="5" max="45" step="0.5" value="18">
+            </div>
+
+            <div class="control-item">
+              <div class="control-label-row">
+                <span>Wall Height (h_wall)</span>
+                <span class="control-val" id="val-wall-h">6.0 m</span>
+              </div>
+              <input type="range" id="range-wall-h" class="range-input" min="1" max="15" step="0.5" value="6">
+            </div>
+          </div>
+
+          <div id="clearance-banner" class="clearance-banner clears">
+            <div>
+              <strong>Clearance Analysis:</strong>
+              <div style="font-size:0.8rem; margin-top:2px;" id="clearance-math-details">
+                Ball reaches x = 18.0m at t = 1.41s &bull; Height y(t) = 8.42m
+              </div>
+            </div>
+            <span style="font-weight:800; font-size:1.05rem;" id="clearance-badge">+2.42 m (Clears)</span>
+          </div>
+        </div>
+
+        <!-- Card 5: Meta Quest / Oculus VR & AR Guide -->
+        <div class="quest-guide-box">
+          <h4>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M21 7H3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h4.5l2 2h5l2-2H21a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM7.5 14a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5zm9 0a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+            How to Use with Meta Quest / Oculus (VR &amp; AR)
+          </h4>
+          <ol>
+            <li>Put on your <strong>Meta Quest 2, 3, 3S, or Pro</strong>.</li>
+            <li>Open the built-in <strong>Meta Quest Browser</strong>.</li>
+            <li>Navigate to this web page URL.</li>
+            <li>Click <strong>"Enter AR (Passthrough)"</strong> to project the simulation right onto your real classroom desk or floor in mixed reality! Or click <strong>"Enter VR"</strong> for a complete virtual science laboratory.</li>
+            <li><strong>Controller Interaction:</strong> Point the laser pointer at the floating 3D panel and pull the <strong>Trigger</strong> to Fire, Reset, or toggle Slow-Motion. You can also squeeze the Trigger or press the <strong>'A' button</strong> anytime to launch!</li>
+          </ol>
+        </div>
+
+      </aside>
+    </main>
+
+    <!-- ===== FOOTER ===== -->
+    <footer class="footer">
+      <p>
+        <strong>The Thinking Experiment</strong> &bull; Author: Vladimir Lopez &bull;
+        <a href="https://thinking-experiment-sims.github.io/interactive-physics/" target="_blank" rel="noopener">Interactive Physics Hub</a> &bull;
+        Built with Three.js &amp; WebXR. Light mode only.
+      </p>
+    </footer>
+  </div>
+
+  <!-- Main JavaScript App Logic -->
+  <script type="module">
+    import {
+      initSimulation,
+      state,
+      kinematics,
+      updateKinematics,
+      setProjectileToTime,
+      fireSimulation,
+      pauseSimulation,
+      resetSimulation
+    } from './sim.js';
+
+    window.addEventListener('DOMContentLoaded', () => {
+      // Initialize Three.js scene
+      initSimulation();
+
+      // DOM Elements
+      const rangeV0 = document.getElementById('range-v0');
+      const rangeAngle = document.getElementById('range-angle');
+      const rangeY0 = document.getElementById('range-y0');
+      const selectG = document.getElementById('select-g');
+
+      const valV0 = document.getElementById('val-v0');
+      const valAngle = document.getElementById('val-angle');
+      const valY0 = document.getElementById('val-y0');
+      const valG = document.getElementById('val-g');
+
+      const rangeWallX = document.getElementById('range-wall-x');
+      const rangeWallH = document.getElementById('range-wall-h');
+      const valWallX = document.getElementById('val-wall-x');
+      const valWallH = document.getElementById('val-wall-h');
+
+      const chkSoh = document.getElementById('chk-sohcahtoa');
+      const chkVectors = document.getElementById('chk-vectors');
+      const chkStrobes = document.getElementById('chk-strobes');
+      const chkObstacle = document.getElementById('chk-obstacle');
+
+      const btnFire = document.getElementById('btn-fire');
+      const btnPause = document.getElementById('btn-pause');
+      const btnReset = document.getElementById('btn-reset');
+      const btnSpeedSlow = document.getElementById('btn-speed-slow');
+      const btnSpeedNorm = document.getElementById('btn-speed-norm');
+      const scrubber = document.getElementById('time-scrubber');
+      const camSelect = document.getElementById('cam-select');
+
+      // Sync UI Function
+      function syncUI() {
+        valV0.textContent = `${state.v0.toFixed(1)} m/s`;
+        valAngle.textContent = `${state.angleDeg.toFixed(1)}°`;
+        valY0.textContent = `${state.y0.toFixed(1)} m`;
+        valG.textContent = `${state.g.toFixed(2)} m/s²`;
+        valWallX.textContent = `${state.obstacleX.toFixed(1)} m`;
+        valWallH.textContent = `${state.obstacleH.toFixed(1)} m`;
+
+        // Update Math & Telemetry
+        document.getElementById('disp-vx').textContent = `v₀ₓ = ${state.v0.toFixed(1)} × cos(${state.angleDeg.toFixed(0)}°) = ${kinematics.v0x.toFixed(2)} m/s`;
+        document.getElementById('disp-vy').textContent = `v₀ᵧ = ${state.v0.toFixed(1)} × sin(${state.angleDeg.toFixed(0)}°) = ${kinematics.v0y.toFixed(2)} m/s`;
+
+        document.getElementById('metric-tup').textContent = `${kinematics.tUp.toFixed(2)} s`;
+        document.getElementById('metric-tdown').textContent = `${kinematics.tDown.toFixed(2)} s`;
+        document.getElementById('metric-ttot').textContent = `${kinematics.tTotal.toFixed(2)} s`;
+        document.getElementById('metric-hmax').textContent = `${kinematics.hMax.toFixed(2)} m`;
+        document.getElementById('metric-vpeak').textContent = `${kinematics.v0x.toFixed(2)} m/s`;
+        document.getElementById('metric-range').textContent = `${kinematics.range.toFixed(2)} m`;
+
+        // Obstacle Clearance
+        const banner = document.getElementById('clearance-banner');
+        const badge = document.getElementById('clearance-badge');
+        const details = document.getElementById('clearance-math-details');
+
+        if (state.hasObstacle && kinematics.tWall > 0 && kinematics.tWall <= kinematics.tTotal) {
+          details.textContent = `Ball reaches x = ${state.obstacleX.toFixed(1)}m at t = ${kinematics.tWall.toFixed(2)}s • Height y(t) = ${kinematics.yWall.toFixed(2)}m`;
+          if (kinematics.clearsWall) {
+            banner.className = 'clearance-banner clears';
+            badge.textContent = `+${kinematics.wallClearance.toFixed(2)} m (Clears)`;
+          } else {
+            banner.className = 'clearance-banner collides';
+            badge.textContent = `${kinematics.wallClearance.toFixed(2)} m (Collision!)`;
+          }
+        } else {
+          details.textContent = `Obstacle is beyond projectile's total flight range (${kinematics.range.toFixed(2)}m).`;
+          banner.className = 'clearance-banner clears';
+          badge.textContent = 'Clears';
+        }
+
+        // HUD live position & velocity
+        const curX = (kinematics.v0x * state.simTime).toFixed(1);
+        const curVy = (kinematics.v0y - state.g * state.simTime).toFixed(1);
+        const curY = Math.max(state.y0 + kinematics.v0y * state.simTime - 0.5 * state.g * state.simTime * state.simTime, 0).toFixed(1);
+        const curV = Math.hypot(kinematics.v0x, kinematics.v0y - state.g * state.simTime).toFixed(1);
+
+        document.getElementById('hud-pos').textContent = `x: ${curX}m, y: ${curY}m`;
+        document.getElementById('hud-vel').textContent = `v: ${curV} m/s (vx: ${kinematics.v0x.toFixed(1)}, vy: ${curVy})`;
+      }
+
+      // Input Event Handlers
+      rangeV0.addEventListener('input', (e) => {
+        state.v0 = parseFloat(e.target.value);
+        updateKinematics();
+        syncUI();
+      });
+
+      rangeAngle.addEventListener('input', (e) => {
+        state.angleDeg = parseFloat(e.target.value);
+        updateKinematics();
+        syncUI();
+      });
+
+      rangeY0.addEventListener('input', (e) => {
+        state.y0 = parseFloat(e.target.value);
+        updateKinematics();
+        syncUI();
+      });
+
+      selectG.addEventListener('change', (e) => {
+        state.g = parseFloat(e.target.value);
+        updateKinematics();
+        syncUI();
+      });
+
+      rangeWallX.addEventListener('input', (e) => {
+        state.obstacleX = parseFloat(e.target.value);
+        updateKinematics();
+        syncUI();
+      });
+
+      rangeWallH.addEventListener('input', (e) => {
+        state.obstacleH = parseFloat(e.target.value);
+        updateKinematics();
+        syncUI();
+      });
+
+      chkSoh.addEventListener('change', (e) => {
+        state.showSohCahToa = e.target.checked;
+        updateKinematics();
+      });
+
+      chkVectors.addEventListener('change', (e) => {
+        state.showVectors = e.target.checked;
+        updateKinematics();
+      });
+
+      chkStrobes.addEventListener('change', (e) => {
+        state.showStrobes = e.target.checked;
+        updateKinematics();
+      });
+
+      chkObstacle.addEventListener('change', (e) => {
+        state.hasObstacle = e.target.checked;
+        updateKinematics();
+        syncUI();
+      });
+
+      camSelect.addEventListener('change', (e) => {
+        state.camMode = e.target.value;
+      });
+
+      // Playback Buttons
+      btnFire.addEventListener('click', () => fireSimulation());
+      btnPause.addEventListener('click', () => pauseSimulation());
+      btnReset.addEventListener('click', () => {
+        resetSimulation();
+        syncUI();
+      });
+
+      btnSpeedSlow.addEventListener('click', () => {
+        state.timeScale = 0.25;
+        btnSpeedSlow.style.background = '#e4f3f7';
+        btnSpeedSlow.style.fontWeight = '700';
+        btnSpeedNorm.style.background = '';
+        btnSpeedNorm.style.fontWeight = 'normal';
+      });
+
+      btnSpeedNorm.addEventListener('click', () => {
+        state.timeScale = 1.0;
+        btnSpeedNorm.style.background = '#e4f3f7';
+        btnSpeedNorm.style.fontWeight = '700';
+        btnSpeedSlow.style.background = '';
+        btnSpeedSlow.style.fontWeight = 'normal';
+      });
+
+      // Scrubber
+      scrubber.addEventListener('input', (e) => {
+        state.scrubbing = true;
+        setProjectileToTime(parseFloat(e.target.value));
+        syncUI();
+      });
+
+      scrubber.addEventListener('change', () => {
+        state.scrubbing = false;
+      });
+
+      // Initial Sync
+      syncUI();
+    });
+  </script>
+</body>
+</html>
