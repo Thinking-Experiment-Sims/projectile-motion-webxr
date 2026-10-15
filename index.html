@@ -9,7 +9,8 @@
   <link rel="stylesheet" href="styles.css">
   <!-- KaTeX for rendered math -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 </head>
 <body>
   <div class="bg-grid" aria-hidden="true"></div>
@@ -186,36 +187,28 @@
             </h3>
           </div>
 
-          <p style="font-size:0.86rem; color:var(--color-text-muted); margin-bottom:10px;">
-            The launch vector \(\vec{v}_0\) acts as the <strong>hypotenuse</strong> of a right triangle at angle \(\theta\).
+          <p style="font-size:0.86rem; color:var(--color-text-muted); margin-bottom:12px;">
+            The launch vector <span id="math-v0-lead"></span> acts as the <strong>hypotenuse</strong> of a right triangle at launch angle <span id="math-theta-lead"></span>.
             Its horizontal motion is completely independent of its vertical free-fall.
           </p>
 
           <div class="triangle-diagram-row">
             <div class="formula-card">
               <div class="formula-title">CAH &bull; Horizontal Component</div>
-              <div class="formula-math" id="math-vx">
-                \[\cos\theta = \frac{v_{0x}}{v_0} \implies v_{0x} = v_0 \cos\theta\]
-              </div>
-              <div style="font-size:0.86rem; font-weight:700; color:var(--color-teal); margin-top:4px;" id="disp-vx">
-                v₀ₓ = 18.0 &times; cos(45°) = 12.73 m/s
-              </div>
+              <div class="formula-math" id="math-vx"></div>
+              <div class="formula-math" id="disp-vx" style="margin-top:6px; font-weight:700; color:var(--color-teal);"></div>
             </div>
 
             <div class="formula-card amber-border">
               <div class="formula-title">SOH &bull; Vertical Component</div>
-              <div class="formula-math" id="math-vy">
-                \[\sin\theta = \frac{v_{0y}}{v_0} \implies v_{0y} = v_0 \sin\theta\]
-              </div>
-              <div style="font-size:0.86rem; font-weight:700; color:var(--color-amber); margin-top:4px;" id="disp-vy">
-                v₀ᵧ = 18.0 &times; sin(45°) = 12.73 m/s
-              </div>
+              <div class="formula-math" id="math-vy"></div>
+              <div class="formula-math" id="disp-vy" style="margin-top:6px; font-weight:700; color:var(--color-amber);"></div>
             </div>
           </div>
 
-          <div style="background:var(--color-surface); padding:8px 12px; border-radius:4px; border:1px solid var(--color-border); font-size:0.82rem; color:var(--color-text-muted);">
-            <strong>TOA Check:</strong> \(\tan\theta = \frac{v_{0y}}{v_{0x}} \implies \theta = \arctan\left(\frac{v_{0y}}{v_{0x}}\right) = 45.0^\circ\).
-            Notice that \(v_{0x}\) <em>never changes</em> during the entire flight because horizontal acceleration \(a_x = 0\)!
+          <div style="background:var(--color-surface); padding:10px 14px; border-radius:6px; border:1px solid var(--color-border); font-size:0.86rem;" id="toa-box">
+            <div id="toa-formula" style="font-weight:600; color:var(--color-text-main); margin-bottom:4px;"></div>
+            <div style="font-size:0.82rem; color:var(--color-text-muted);" id="toa-explanation"></div>
           </div>
         </div>
 
@@ -267,10 +260,7 @@
           </div>
 
           <!-- Crucial Concept Note -->
-          <div style="margin-top:12px; background:var(--color-amber-light); border:1px solid #f0cf9e; border-radius:4px; padding:8px 12px; font-size:0.83rem; color:#854906;">
-            <strong>&#9888; Common Misconception:</strong> Is the projectile's velocity zero at the apex? <strong>No!</strong>
-            Only the <em>vertical</em> velocity stops momentarily (\(v_y = 0\)).
-            The projectile still travels horizontally at full speed: \(v_{\text{peak}} = v_x = 12.73\text{ m/s}\).
+          <div style="margin-top:12px; background:var(--color-amber-light); border:1px solid #f0cf9e; border-radius:4px; padding:10px 14px; font-size:0.84rem; color:#854906;" id="apex-note-box">
           </div>
         </div>
 
@@ -390,6 +380,103 @@
       const scrubber = document.getElementById('time-scrubber');
       const camSelect = document.getElementById('cam-select');
 
+      // Math Formula Renderer (KaTeX with clean Unicode fallback)
+      function renderFormulas() {
+        if (window.katex) {
+          try {
+            // Introductory text math symbols
+            const leadV0 = document.getElementById('math-v0-lead');
+            if (leadV0) leadV0.innerHTML = katex.renderToString('\\vec{v}_0', { displayMode: false, throwOnError: false });
+            const leadTh = document.getElementById('math-theta-lead');
+            if (leadTh) leadTh.innerHTML = katex.renderToString('\\theta', { displayMode: false, throwOnError: false });
+
+            // CAH: Horizontal component formula & dynamic numbers
+            const mathVx = document.getElementById('math-vx');
+            if (mathVx) {
+              mathVx.innerHTML = katex.renderToString(
+                '\\cos\\theta = \\frac{v_{0x}}{v_0} \\implies v_{0x} = v_0 \\cos\\theta',
+                { displayMode: true, throwOnError: false }
+              );
+            }
+            const dispVx = document.getElementById('disp-vx');
+            if (dispVx) {
+              dispVx.innerHTML = katex.renderToString(
+                `v_{0x} = ${state.v0.toFixed(1)} \\times \\cos(${state.angleDeg.toFixed(0)}^\\circ) = ${kinematics.v0x.toFixed(2)}\\text{ m/s}`,
+                { displayMode: false, throwOnError: false }
+              );
+            }
+
+            // SOH: Vertical component formula & dynamic numbers
+            const mathVy = document.getElementById('math-vy');
+            if (mathVy) {
+              mathVy.innerHTML = katex.renderToString(
+                '\\sin\\theta = \\frac{v_{0y}}{v_0} \\implies v_{0y} = v_0 \\sin\\theta',
+                { displayMode: true, throwOnError: false }
+              );
+            }
+            const dispVy = document.getElementById('disp-vy');
+            if (dispVy) {
+              dispVy.innerHTML = katex.renderToString(
+                `v_{0y} = ${state.v0.toFixed(1)} \\times \\sin(${state.angleDeg.toFixed(0)}^\\circ) = ${kinematics.v0y.toFixed(2)}\\text{ m/s}`,
+                { displayMode: false, throwOnError: false }
+              );
+            }
+
+            // TOA Check
+            const ratio = kinematics.v0x > 0 ? (kinematics.v0y / kinematics.v0x).toFixed(3) : '0';
+            const toaFormula = document.getElementById('toa-formula');
+            if (toaFormula) {
+              toaFormula.innerHTML = '<strong>TOA Check: </strong>' + katex.renderToString(
+                `\\tan\\theta = \\frac{v_{0y}}{v_{0x}} = ${ratio} \\implies \\theta = \\arctan(${ratio}) = ${state.angleDeg.toFixed(1)}^\\circ`,
+                { displayMode: false, throwOnError: false }
+              );
+            }
+            const toaExp = document.getElementById('toa-explanation');
+            if (toaExp) {
+              toaExp.innerHTML = 'Notice that ' +
+                katex.renderToString('v_{0x}', { displayMode: false, throwOnError: false }) +
+                ' <em>never changes</em> during the entire flight because horizontal acceleration ' +
+                katex.renderToString('a_x = 0', { displayMode: false, throwOnError: false }) + '!';
+            }
+
+            // Apex misconception note
+            const apexNote = document.getElementById('apex-note-box');
+            if (apexNote) {
+              apexNote.innerHTML =
+                '<strong>⚠️ Common Misconception:</strong> Is the projectile\'s velocity zero at the apex? <strong>No!</strong> ' +
+                'Only the <em>vertical</em> velocity stops momentarily (' +
+                katex.renderToString('v_y = 0\\text{ m/s}', { displayMode: false, throwOnError: false }) +
+                '). The projectile still travels horizontally at full speed: ' +
+                katex.renderToString(`v_{\\text{peak}} = v_{0x} = ${kinematics.v0x.toFixed(2)}\\text{ m/s}`, { displayMode: false, throwOnError: false }) + '.';
+            }
+
+            return;
+          } catch (err) {
+            console.error('KaTeX rendering error:', err);
+          }
+        }
+
+        // Clean Unicode fallback (no raw backslashes under any circumstances)
+        const leadV0 = document.getElementById('math-v0-lead');
+        if (leadV0) leadV0.textContent = 'v⃗₀';
+        const leadTh = document.getElementById('math-theta-lead');
+        if (leadTh) leadTh.textContent = 'θ';
+        const mathVx = document.getElementById('math-vx');
+        if (mathVx) mathVx.textContent = 'cos(θ) = v₀ₓ / v₀ ⇒ v₀ₓ = v₀ · cos(θ)';
+        const dispVx = document.getElementById('disp-vx');
+        if (dispVx) dispVx.textContent = `v₀ₓ = ${state.v0.toFixed(1)} × cos(${state.angleDeg.toFixed(0)}°) = ${kinematics.v0x.toFixed(2)} m/s`;
+        const mathVy = document.getElementById('math-vy');
+        if (mathVy) mathVy.textContent = 'sin(θ) = v₀ᵧ / v₀ ⇒ v₀ᵧ = v₀ · sin(θ)';
+        const dispVy = document.getElementById('disp-vy');
+        if (dispVy) dispVy.textContent = `v₀ᵧ = ${state.v0.toFixed(1)} × sin(${state.angleDeg.toFixed(0)}°) = ${kinematics.v0y.toFixed(2)} m/s`;
+        const toaFormula = document.getElementById('toa-formula');
+        if (toaFormula) toaFormula.textContent = `TOA Check: tan(θ) = v₀ᵧ / v₀ₓ ⇒ θ = arctan(${kinematics.v0y.toFixed(2)} / ${kinematics.v0x.toFixed(2)}) = ${state.angleDeg.toFixed(1)}°`;
+        const toaExp = document.getElementById('toa-explanation');
+        if (toaExp) toaExp.textContent = `Notice that v₀ₓ never changes during the entire flight because horizontal acceleration aₓ = 0!`;
+        const apexNote = document.getElementById('apex-note-box');
+        if (apexNote) apexNote.innerHTML = `<strong>⚠️ Common Misconception:</strong> Is the projectile's velocity zero at the apex? <strong>No!</strong> Only the vertical velocity stops momentarily (vy = 0 m/s). The projectile still travels horizontally at full speed: v_peak = v₀ₓ = ${kinematics.v0x.toFixed(2)} m/s.`;
+      }
+
       // Sync UI Function
       function syncUI() {
         valV0.textContent = `${state.v0.toFixed(1)} m/s`;
@@ -399,9 +486,8 @@
         valWallX.textContent = `${state.obstacleX.toFixed(1)} m`;
         valWallH.textContent = `${state.obstacleH.toFixed(1)} m`;
 
-        // Update Math & Telemetry
-        document.getElementById('disp-vx').textContent = `v₀ₓ = ${state.v0.toFixed(1)} × cos(${state.angleDeg.toFixed(0)}°) = ${kinematics.v0x.toFixed(2)} m/s`;
-        document.getElementById('disp-vy').textContent = `v₀ᵧ = ${state.v0.toFixed(1)} × sin(${state.angleDeg.toFixed(0)}°) = ${kinematics.v0y.toFixed(2)} m/s`;
+        // Render all math formulas with KaTeX
+        renderFormulas();
 
         document.getElementById('metric-tup').textContent = `${kinematics.tUp.toFixed(2)} s`;
         document.getElementById('metric-tdown').textContent = `${kinematics.tDown.toFixed(2)} s`;

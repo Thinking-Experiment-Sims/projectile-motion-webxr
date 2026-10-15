@@ -475,9 +475,18 @@ html, body {
 }
 
 .formula-math {
-  font-family: 'Cambria Math', 'KaTeX_Main', serif;
-  font-size: 1.05rem;
+  font-size: 1rem;
   color: var(--color-text-main);
+  line-height: 1.4;
+}
+
+.formula-math .katex-display {
+  margin: 4px 0 !important;
+  text-align: left !important;
+}
+
+.formula-math .katex {
+  font-size: 1.05em;
 }
 
 /* Telemetry Metrics Grid */
