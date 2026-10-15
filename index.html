@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
   <meta name="color-scheme" content="light">
   <title>Spatial Projectiles Lab (WebXR VR/AR) - The Thinking Experiment</title>
-  <meta name="description" content="Spatial 3D and WebXR Projectile Motion laboratory for Meta Quest and web browsers with SOH CAH TOA decomposition, apex physics, and obstacle clearance.">
+  <link rel="icon" type="image/png" href="favicon.png">
   <link rel="stylesheet" href="styles.css">
   <!-- KaTeX for rendered math -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
@@ -188,27 +188,27 @@
           </div>
 
           <p style="font-size:0.86rem; color:var(--color-text-muted); margin-bottom:12px;">
-            The launch vector <span id="math-v0-lead"></span> acts as the <strong>hypotenuse</strong> of a right triangle at launch angle <span id="math-theta-lead"></span>.
+            The launch vector <span id="math-v0-lead">v⃗₀</span> acts as the <strong>hypotenuse</strong> of a right triangle at launch angle <span id="math-theta-lead">θ</span>.
             Its horizontal motion is completely independent of its vertical free-fall.
           </p>
 
           <div class="triangle-diagram-row">
             <div class="formula-card">
               <div class="formula-title">CAH &bull; Horizontal Component</div>
-              <div class="formula-math" id="math-vx"></div>
-              <div class="formula-math" id="disp-vx" style="margin-top:6px; font-weight:700; color:var(--color-teal);"></div>
+              <div class="formula-math" id="math-vx">cos(θ) = v₀ₓ / v₀ ⇒ v₀ₓ = v₀ · cos(θ)</div>
+              <div class="formula-math" id="disp-vx" style="margin-top:6px; font-weight:700; color:var(--color-teal);">v₀ₓ = 18.0 × cos(45°) = 12.73 m/s</div>
             </div>
 
             <div class="formula-card amber-border">
               <div class="formula-title">SOH &bull; Vertical Component</div>
-              <div class="formula-math" id="math-vy"></div>
-              <div class="formula-math" id="disp-vy" style="margin-top:6px; font-weight:700; color:var(--color-amber);"></div>
+              <div class="formula-math" id="math-vy">sin(θ) = v₀ᵧ / v₀ ⇒ v₀ᵧ = v₀ · sin(θ)</div>
+              <div class="formula-math" id="disp-vy" style="margin-top:6px; font-weight:700; color:var(--color-amber);">v₀ᵧ = 18.0 × sin(45°) = 12.73 m/s</div>
             </div>
           </div>
 
           <div style="background:var(--color-surface); padding:10px 14px; border-radius:6px; border:1px solid var(--color-border); font-size:0.86rem;" id="toa-box">
-            <div id="toa-formula" style="font-weight:600; color:var(--color-text-main); margin-bottom:4px;"></div>
-            <div style="font-size:0.82rem; color:var(--color-text-muted);" id="toa-explanation"></div>
+            <div id="toa-formula" style="font-weight:600; color:var(--color-text-main); margin-bottom:4px;">TOA Check: tan(θ) = v₀ᵧ / v₀ₓ ⇒ θ = arctan(12.73 / 12.73) = 45.0°</div>
+            <div style="font-size:0.82rem; color:var(--color-text-muted);" id="toa-explanation">Notice that v₀ₓ <em>never changes</em> during the entire flight because horizontal acceleration aₓ = 0!</div>
           </div>
         </div>
 
@@ -261,6 +261,7 @@
 
           <!-- Crucial Concept Note -->
           <div style="margin-top:12px; background:var(--color-amber-light); border:1px solid #f0cf9e; border-radius:4px; padding:10px 14px; font-size:0.84rem; color:#854906;" id="apex-note-box">
+            <strong>⚠️ Common Misconception:</strong> Is the projectile's velocity zero at the apex? <strong>No!</strong> Only the <em>vertical</em> velocity stops momentarily (vy = 0 m/s). The projectile still travels horizontally at full speed: v_peak = v₀ₓ = 12.73 m/s.
           </div>
         </div>
 
@@ -347,7 +348,7 @@
       resetSimulation
     } from './sim.js';
 
-    window.addEventListener('DOMContentLoaded', () => {
+    function bootApp() {
       // Initialize Three.js scene
       initSimulation();
 
@@ -625,7 +626,24 @@
 
       // Initial Sync
       syncUI();
-    });
+
+      // Ensure formulas re-render if KaTeX script initializes after boot
+      if (!window.katex) {
+        const checkKaTeX = setInterval(() => {
+          if (window.katex) {
+            clearInterval(checkKaTeX);
+            renderFormulas();
+          }
+        }, 80);
+        setTimeout(() => clearInterval(checkKaTeX), 4000);
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      window.addEventListener('DOMContentLoaded', bootApp);
+    } else {
+      bootApp();
+    }
   </script>
 </body>
 </html>
